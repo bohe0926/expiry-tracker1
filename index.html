@@ -57,6 +57,21 @@
     .near-month {
       background-color: #fff3e0;
     }
+    .expired {
+      background-color: #f5f5f5;
+      color: #999;
+    }
+    .delete-btn {
+      background-color: #dc3545;
+      border: none;
+      color: white;
+      padding: 5px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .delete-btn:hover {
+      background-color: #b02a37;
+    }
     .label {
       font-size: 14px;
       color: #666;
@@ -84,6 +99,7 @@
           <th>物品名称</th>
           <th>到期日期</th>
           <th>剩余天数</th>
+          <th>操作</th>
         </tr>
       </thead>
       <tbody id="itemList">
@@ -92,7 +108,8 @@
   </div>
 
   <script>
-    const items = [];
+    // 初始化数据
+    let items = JSON.parse(localStorage.getItem('expiryItems')) || [];
 
     function addItem() {
       const name = document.getElementById('name').value;
@@ -109,14 +126,27 @@
       expiryDate.setDate(production.getDate() + shelfLife);
 
       items.push({
+        id: Date.now(), // 唯一标识符
         name,
         productionDate,
         shelfLife,
-        expiryDate
+        expiryDate: expiryDate.toISOString()
       });
+
+      // 保存到 localStorage
+      saveToLocalStorage();
 
       renderItems();
       clearInputs();
+    }
+
+    function deleteItem(id) {
+      const index = items.findIndex(item => item.id === id);
+      if (index !== -1) {
+        items.splice(index, 1); // 删除对应物品
+        saveToLocalStorage(); // 更新 localStorage
+        renderItems(); // 重新渲染列表
+      }
     }
 
     function renderItems() {
@@ -125,15 +155,17 @@
       itemList.innerHTML = '';
 
       // 按到期日期排序
-      items.sort((a, b) => a.expiryDate - b.expiryDate);
+      items.sort((a, b) => new Date(a.expiryDate) - new Date(b.expiryDate));
 
       items.forEach(item => {
-        const expiry = item.expiryDate;
+        const expiry = new Date(item.expiryDate);
         const remainingDays = Math.ceil((expiry - today) / (1000 * 60 * 60 * 24));
 
         const row = document.createElement('tr');
 
-        if (remainingDays <= 7) {
+        if (remainingDays <= 0) {
+          row.classList.add('expired');
+        } else if (remainingDays <= 7) {
           row.classList.add('near-week');
         } else if (remainingDays <= 30) {
           row.classList.add('near-month');
@@ -141,8 +173,9 @@
 
         row.innerHTML = `
           <td>${item.name}</td>
-          <td>${item.expiryDate.toISOString().split('T')[0]}</td>
+          <td>${expiry.toISOString().split('T')[0]}</td>
           <td>${remainingDays > 0 ? `${remainingDays} 天` : '已过期'}</td>
+          <td><button class="delete-btn" onclick="deleteItem(${item.id})">删除</button></td>
         `;
 
         itemList.appendChild(row);
@@ -154,6 +187,15 @@
       document.getElementById('productionDate').value = '';
       document.getElementById('shelfLife').value = '';
     }
+
+    function saveToLocalStorage() {
+      localStorage.setItem('expiryItems', JSON.stringify(items));
+    }
+
+    // 页面加载时渲染数据
+    window.onload = function () {
+      renderItems();
+    };
   </script>
 </body>
 </html>
